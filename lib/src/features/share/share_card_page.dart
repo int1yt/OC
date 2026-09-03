@@ -7,10 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../../core/export_util.dart';
 import '../../core/utils.dart';
 import '../../data/database.dart';
 import '../../state/providers.dart';
 import '../character/tabs/ability_tab.dart';
+import '../help/help_sheet.dart';
+import '../saved/saved_page.dart';
 
 class ShareCardPage extends ConsumerStatefulWidget {
   const ShareCardPage({super.key, required this.ocId});
@@ -42,9 +45,7 @@ class _ShareCardPageState extends ConsumerState<ShareCardPage> {
     final file = File(p.join(dir.path, 'share_${newId()}.png'));
     await file.writeAsBytes(bytes);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已保存：${file.path}')),
-    );
+    await showExportResult(context, file.path);
   }
 
   void _toggle(String m) {
@@ -98,6 +99,21 @@ class _ShareCardPageState extends ConsumerState<ShareCardPage> {
       appBar: AppBar(
         title: const Text('分享卡片'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            tooltip: '本页帮助',
+            onPressed: () => showHelpSheet(context, '分享卡片', const [
+              HelpItem(Icons.palette_outlined, '主题色', '选择卡片配色，预览实时更新。'),
+              HelpItem(Icons.check_box_outlined, '模块勾选与排序', '勾选要展示的模块（头像/姓名/MBTI/雷达图/口头禅/标签），并用箭头调整顺序。'),
+              HelpItem(Icons.save_alt, '保存 PNG', '点右上角「保存 PNG」生成 3:4 竖版图片，可查看/分享。'),
+            ]),
+          ),
+          IconButton(
+            icon: const Icon(Icons.folder_outlined),
+            tooltip: '已保存',
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const SavedPage())),
+          ),
           TextButton.icon(
             onPressed: _savePng,
             icon: const Icon(Icons.save_alt),

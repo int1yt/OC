@@ -6,6 +6,7 @@ import 'package:drift/drift.dart' hide isNull;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../core/export_util.dart';
 import '../core/utils.dart';
 import 'database.dart';
 
@@ -108,9 +109,7 @@ Future<String> exportAll(AppDatabase db) async {
         }),
   };
 
-  final docDir = await getApplicationDocumentsDirectory();
-  final exportDir = Directory(p.join(docDir.path, 'exports'));
-  if (!await exportDir.exists()) await exportDir.create(recursive: true);
+  final exportDir = await getExportDir();
   final zipPath = p.join(exportDir.path, 'oc_export_${newId()}.zip');
 
   // 收集图片文件

@@ -7,9 +7,10 @@ import 'package:path_provider/path_provider.dart';
 import '../core/utils.dart';
 
 /// 从相册选择图片并复制到应用文档目录，返回存储路径
-Future<String?> pickAndStoreImage() async {
+Future<String?> pickAndStoreImage({double? maxWidth}) async {
   final picker = ImagePicker();
-  final x = await picker.pickImage(source: ImageSource.gallery, maxWidth: 1600);
+  final x = await picker.pickImage(
+      source: ImageSource.gallery, maxWidth: maxWidth);
   if (x == null) return null;
   final dir = await getApplicationDocumentsDirectory();
   final imagesDir = Directory(p.join(dir.path, 'images'));

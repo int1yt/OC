@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants.dart';
+import '../../core/export_util.dart';
 import '../../core/page_route.dart';
 import '../../core/utils.dart';
 import '../../data/database.dart';
 import '../../data/oc_repository.dart';
 import '../../state/providers.dart';
 import '../character/character_detail_page.dart';
+import '../saved/saved_page.dart';
 
 class RelationshipGraphPage extends ConsumerStatefulWidget {
   const RelationshipGraphPage({super.key});
@@ -45,6 +47,7 @@ class _RelationshipGraphPageState extends ConsumerState<RelationshipGraphPage> {
   Offset? _bubbleScreenPos;
   bool _grid = false;
   bool _locked = false;
+  final GlobalKey _exportKey = GlobalKey();
 
   Offset _toCanvas(Offset local) => (local - _offset) / _scale;
 
@@ -402,107 +405,15 @@ class _RelationshipGraphPageState extends ConsumerState<RelationshipGraphPage> {
     );
   }
 
-  double _strengthWeight(String label) {
-    switch (label) {
-      case '亲密':
-        return 3.0;
-      case '友好':
-        return 2.0;
-      case '疏远':
-        return 1.0;
-      case '敌对':
-        return 0.4;
-      case '仇视':
-        return 0.15;
-      default:
-        return 1.0;
-    }
-  }
-
-  /// 力导向排版：亲密的关系靠得更近，疏远/敌对离得更远
-  void _forceLayout(List<Oc> ocs, List<Relationship> rels) {
-    final pos = <String, Offset>{};
-    for (var i = 0; i < ocs.length; i++) {
-      pos[ocs[i].id] = _defaultPos(ocs, i);
-    }
-    final n = pos.length;
-    if (n < 2) {
-      _positions
-        ..clear()
-        ..addAll(pos);
-      return;
-    }
-
-    final k = 160.0 + n * 3.0;
-    const iterations = 200;
-
-    for (int iter = 0; iter < iterations; iter++) {
-      final disp = <String, Offset>{
-        for (final id in pos.keys) id: Offset.zero
-      };
-      final ids = pos.keys.toList();
-
-      for (int i = 0; i < n; i++) {
-        for (int j = i + 1; j < n; j++) {
-          final a = pos[ids[i]]!;
-          final b = pos[ids[j]]!;
-          var delta = a - b;
-          var dist = delta.distance;
-          if (dist < 1) dist = 1;
-          final force = k * k / dist;
-          final dir = delta / dist;
-          disp[ids[i]] = disp[ids[i]]! + dir * force;
-          disp[ids[j]] = disp[ids[j]]! - dir * force;
-        }
-      }
-
-      for (final r in rels) {
-        final a = pos[r.sourceOcId];
-        final b = pos[r.targetOcId];
-        if (a == null || b == null) continue;
-        var delta = a - b;
-        var dist = delta.distance;
-        if (dist < 1) dist = 1;
-        final w = _strengthWeight(r.strength);
-        final force = dist * dist / k * w;
-        final dir = delta / dist;
-        disp[r.sourceOcId] = disp[r.sourceOcId]! - dir * force;
-        disp[r.targetOcId] = disp[r.targetOcId]! + dir * force;
-      }
-
-      final temp = 30.0 * (1 - iter / iterations) + 0.5;
-      for (final id in ids) {
-        var d = disp[id]!;
-        final len = d.distance;
-        if (len > temp) d = d / len * temp;
-        pos[id] = pos[id]! + d;
-      }
-    }
-
-    double minX = double.infinity, minY = double.infinity;
-    double maxX = double.negativeInfinity, maxY = double.negativeInfinity;
-    for (final p in pos.values) {
-      minX = math.min(minX, p.dx);
-      minY = math.min(minY, p.dy);
-      maxX = math.max(maxX, p.dx);
-      maxY = math.max(maxY, p.dy);
-    }
-    final shift = Offset(
-        _canvas / 2 - (minX + maxX) / 2, _canvas / 2 - (minY + maxY) / 2);
-    _positions
-      ..clear()
-      ..addAll(pos.map((id, v) => MapEntry(id, v + shift)));
-  }
-
-  Future<void> _autoLayout(List<Oc> ocs, List<Relationship> rels) async {
-    _forceLayout(ocs, rels);
-    setState(() {});
-    _fitView(ocs);
-    final db = ref.read(databaseProvider);
-    for (final oc in ocs) {
-      final pos = _positions[oc.id]!;
-      await (db.update(db.ocs)..where((t) => t.id.equals(oc.id)))
-          .write(OcsCompanion(posX: Value(pos.dx), posY: Value(pos.dy)));
+  Future<void> _export() async {
+    try {
+      final path = await captureAndSavePng(_exportKey, 'relationship');
+      if (!mounted) return;
+      await showExportResult(context, path);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('导出失败：$e')));
     }
   }
 
@@ -575,7 +486,7 @@ class _RelationshipGraphPageState extends ConsumerState<RelationshipGraphPage> {
       ),
       body: Column(
         children: [
-          _toolbar(ocs, rels),
+          _toolbar(ocs),
           Expanded(
             child: Stack(
               children: [
@@ -592,8 +503,10 @@ class _RelationshipGraphPageState extends ConsumerState<RelationshipGraphPage> {
                     onScaleStart: (d) => _onScaleStart(d, ocs),
                     onScaleUpdate: _onScaleUpdate,
                     onScaleEnd: (d) => _onScaleEnd(d, ocs, workId),
-                    child: ClipRect(
-                      child: Transform(
+                    child: RepaintBoundary(
+                      key: _exportKey,
+                      child: ClipRect(
+                        child: Transform(
                         alignment: Alignment.topLeft,
                         transform: Matrix4.translationValues(
                                 _offset.dx, _offset.dy, 0)
@@ -639,6 +552,7 @@ class _RelationshipGraphPageState extends ConsumerState<RelationshipGraphPage> {
                         ),
                       ),
                     ),
+                    ),
                   );
                 }),
                 if (_bubbleEdge != null && _bubbleScreenPos != null)
@@ -679,7 +593,7 @@ class _RelationshipGraphPageState extends ConsumerState<RelationshipGraphPage> {
     );
   }
 
-  Widget _toolbar(List<Oc> ocs, List<Relationship> rels) {
+  Widget _toolbar(List<Oc> ocs) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -700,10 +614,16 @@ class _RelationshipGraphPageState extends ConsumerState<RelationshipGraphPage> {
             tooltip: '适应视图',
             onPressed: () => _fitView(ocs),
           ),
-          TextButton.icon(
-            onPressed: () => _autoLayout(ocs, rels),
-            icon: const Icon(Icons.auto_awesome, size: 18),
-            label: const Text('排版'),
+          IconButton(
+            icon: const Icon(Icons.save_alt),
+            tooltip: '导出图片',
+            onPressed: _export,
+          ),
+          IconButton(
+            icon: const Icon(Icons.folder_outlined),
+            tooltip: '已保存',
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const SavedPage())),
           ),
           IconButton(
             icon: Icon(_grid ? Icons.grid_on : Icons.grid_off),

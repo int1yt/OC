@@ -10,6 +10,7 @@ import '../../core/page_route.dart';
 import '../../data/database.dart';
 import '../../data/oc_repository.dart';
 import '../../state/providers.dart';
+import '../help/help_sheet.dart';
 import '../share/share_card_page.dart';
 import 'tabs/ability_tab.dart';
 import 'tabs/appearance_tab.dart';
@@ -156,6 +157,19 @@ class CharacterDetailPage extends ConsumerWidget {
         appBar: AppBar(
           title: const Text('人物详情'),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.help_outline),
+              tooltip: '本页帮助',
+              onPressed: () => showHelpSheet(context, '人物详情', const [
+                HelpItem(Icons.account_circle, '人物头卡', '左上角点按可上传头像；编辑按钮可修改年龄/性别/生日/星座。'),
+                HelpItem(Icons.face_retouching_natural, '外貌特征', '按体型/发色瞳色/服饰/特殊标志分区，图文混排，可加文字和图片。'),
+                HelpItem(Icons.psychology_outlined, '内在性格', 'MBTI、核心价值观（可排序）、优点缺点、口头禅、扩展字段。'),
+                HelpItem(Icons.history, '背景故事', '原生家庭、人生转折点（会联动时间轴打星）、核心驱动力、目标动机。'),
+                HelpItem(Icons.radar, '能力量化', '六维雷达图，维度可改名/增删，0~10 分可拖动调整。'),
+                HelpItem(Icons.timeline, '人物时间轴', '记录大事件，可排序、配图；人生转折点自动带星标。'),
+                HelpItem(Icons.ios_share, '分享卡片', '一键生成 3:4 竖版图片，可发小红书。'),
+              ]),
+            ),
             IconButton(
               icon: const Icon(Icons.ios_share_outlined),
               tooltip: '分享卡片',

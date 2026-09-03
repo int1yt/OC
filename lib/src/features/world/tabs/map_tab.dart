@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:drift/drift.dart' hide isNull, Column;
@@ -6,9 +7,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/image_store.dart';
+import '../../../core/export_util.dart';
 import '../../../core/utils.dart';
 import '../../../data/database.dart';
 import '../../../state/providers.dart';
+import '../../saved/saved_page.dart';
 
 class MapTab extends ConsumerStatefulWidget {
   const MapTab({super.key});
@@ -28,6 +31,22 @@ class _MapTabState extends ConsumerState<MapTab> {
   double _dragPinScale = 1.0;
   Size _dragSize = Size.zero;
   final Map<String, Offset> _pinOverrides = {};
+  final GlobalKey _exportKey = GlobalKey();
+  bool _didFit = false;
+  String? _cachedMapId;
+  Size? _cachedSize;
+
+  Future<void> _export() async {
+    try {
+      final path = await captureAndSavePng(_exportKey, 'map', pixelRatio: 1);
+      if (!mounted) return;
+      await showExportResult(context, path);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('导出失败：$e')));
+    }
+  }
 
   @override
   void dispose() {
@@ -42,8 +61,16 @@ class _MapTabState extends ConsumerState<MapTab> {
     return Size(frame.image.width.toDouble(), frame.image.height.toDouble());
   }
 
+  Future<Size> _getSize(WorldMap map) async {
+    if (_cachedMapId == map.id && _cachedSize != null) return _cachedSize!;
+    final size = await _decodeSize(map.imagePath);
+    _cachedMapId = map.id;
+    _cachedSize = size;
+    return size;
+  }
+
   Future<void> _uploadMap(String workId) async {
-    final path = await pickAndStoreImage();
+    final path = await pickAndStoreImage(maxWidth: 4000);
     if (path == null) return;
     if (!mounted) return;
     final ctrl = TextEditingController();
@@ -262,7 +289,10 @@ class _MapTabState extends ConsumerState<MapTab> {
                   child: ChoiceChip(
                     label: Text(m.name),
                     selected: m.id == _selectedMapId,
-                    onSelected: (_) => setState(() => _selectedMapId = m.id),
+                    onSelected: (_) => setState(() {
+                      _selectedMapId = m.id;
+                      _didFit = false;
+                    }),
                   ),
                 ),
               Padding(
@@ -282,6 +312,24 @@ class _MapTabState extends ConsumerState<MapTab> {
                     onPressed: () => _deleteMap(selected.first),
                   ),
                 ),
+              if (selected.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: IconButton(
+                    icon: const Icon(Icons.save_alt),
+                    tooltip: '导出地图图片',
+                    onPressed: _export,
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: IconButton(
+                  icon: const Icon(Icons.folder_outlined),
+                  tooltip: '已保存',
+                  onPressed: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const SavedPage())),
+                ),
+              ),
             ],
           ),
         ),
@@ -304,29 +352,44 @@ class _MapTabState extends ConsumerState<MapTab> {
                   ),
                 )
               : FutureBuilder<Size>(
-                  future: _decodeSize(selected.first.imagePath),
+                  future: _getSize(selected.first),
                   builder: (context, snap) {
                     if (!snap.hasData) {
                       return const Center(child: CircularProgressIndicator());
                     }
                     final size = snap.data!;
-                    return InteractiveViewer(
-                      transformationController: _transform,
-                      panEnabled: _panMode,
-                      scaleEnabled: true,
-                      minScale: 0.2,
-                      maxScale: 5,
-                      boundaryMargin: const EdgeInsets.all(200),
-                      child: GestureDetector(
-                        onTapUp: (d) => _addPin(
-                            workId,
-                            selected.first.id,
-                            Offset(d.localPosition.dx / size.width,
-                                d.localPosition.dy / size.height)),
-                        child: SizedBox(
-                          width: size.width,
-                          height: size.height,
-                          child: Stack(
+                    return LayoutBuilder(builder: (context, c) {
+                      if (!_didFit) {
+                        _didFit = true;
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          final s = math
+                              .min(c.maxWidth / size.width,
+                                  c.maxHeight / size.height)
+                              .clamp(0.05, 1.0);
+                          _transform.value =
+                              Matrix4.diagonal3Values(s, s, 1);
+                        });
+                      }
+                      return InteractiveViewer(
+                        transformationController: _transform,
+                        constrained: false,
+                        panEnabled: _panMode,
+                        scaleEnabled: true,
+                        minScale: 0.05,
+                        maxScale: 8,
+                        boundaryMargin: const EdgeInsets.all(400),
+                        child: GestureDetector(
+                          onTapUp: (d) => _addPin(
+                              workId,
+                              selected.first.id,
+                              Offset(d.localPosition.dx / size.width,
+                                  d.localPosition.dy / size.height)),
+                          child: RepaintBoundary(
+                            key: _exportKey,
+                            child: SizedBox(
+                              width: size.width,
+                              height: size.height,
+                              child: Stack(
                             children: [
                               Positioned.fill(
                                 child: Image.file(File(selected.first.imagePath),
@@ -383,8 +446,10 @@ class _MapTabState extends ConsumerState<MapTab> {
                             ],
                           ),
                         ),
+                        ),
                       ),
                     );
+                  });
                   },
                 ),
         ),

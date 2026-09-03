@@ -9,6 +9,7 @@ import '../../core/utils.dart';
 import '../../data/database.dart';
 import '../../data/work_repository.dart';
 import '../../state/providers.dart';
+import '../help/help_sheet.dart';
 
 class WorkListPage extends ConsumerWidget {
   const WorkListPage({super.key});
@@ -189,7 +190,21 @@ class WorkListPage extends ConsumerWidget {
     final list = works.value ?? const [];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('我的作品')),
+      appBar: AppBar(
+        title: const Text('我的作品'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            tooltip: '本页帮助',
+            onPressed: () => showHelpSheet(context, '我的作品', const [
+              HelpItem(Icons.add, '新建作品', '点右下角「新建作品」，输入作品名即可创建。'),
+              HelpItem(Icons.image_outlined, '设置封面', '点卡片「···」→「设置封面」上传自定义卡面背景图。'),
+              HelpItem(Icons.open_in_new, '进入作品', '点卡片进入该作品，内部有 人物/关系/世界观/灵感 四个板块。'),
+              HelpItem(Icons.delete_outline, '删除作品', '点卡片「···」→「删除」，会连同该作品内的 OC、关系、世界观一并删除。'),
+            ]),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _createWork(context, ref),
         icon: const Icon(Icons.add),

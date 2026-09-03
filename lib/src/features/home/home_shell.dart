@@ -3,17 +3,18 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import '../../core/constants.dart';
+import '../../core/export_util.dart';
 import '../../core/image_store.dart';
 import '../../core/page_route.dart';
 import '../../data/database.dart';
 import '../../data/export_service.dart';
 import '../../state/providers.dart';
 import '../character/character_library_page.dart';
-import '../help/help_tour.dart';
+import '../help/help_sheet.dart';
 import '../relationship/relationship_graph_page.dart';
+import '../saved/saved_page.dart';
 import '../work/work_list_page.dart';
 import '../world/world_page.dart';
 
@@ -43,6 +44,43 @@ class _HomeShellState extends ConsumerState<HomeShell>
     if (i == _index) return;
     setState(() => _index = i);
     _fade.forward(from: 0);
+  }
+
+  void _showHelp(BuildContext context) {
+    switch (_index) {
+      case 0:
+        showHelpSheet(context, '人物库', const [
+          HelpItem(Icons.grid_view, '卡片网格', '每个 OC 一张卡片，显示头像、姓名、MBTI、标签和更新时间。'),
+          HelpItem(Icons.search, '搜索 / 筛选 / 排序', '按姓名或标签搜索，按标签筛选，按更新时间/姓名/创建时间排序。'),
+          HelpItem(Icons.add, '新建人物', '点右下角「新建人物」，输入姓名即可创建，之后进入详情补充更多信息。'),
+          HelpItem(Icons.more_vert, '卡片菜单', '点卡片右上角「···」可重命名、复制、删除。'),
+        ]);
+        break;
+      case 1:
+        showHelpSheet(context, '关系图谱', const [
+          HelpItem(Icons.open_with, '平移与缩放', '单指拖动空白处平移，双指或按钮缩放，「适应视图」一键回到全貌。'),
+          HelpItem(Icons.circle_outlined, '节点与连线', '拖动节点调整位置；从节点底部圆点拖到另一节点即可建立关系。'),
+          HelpItem(Icons.label_outline, '连线查看与编辑', '单击连线弹出气泡卡片（看详情/编辑/删除），双击连线删除。'),
+          HelpItem(Icons.palette_outlined, '颜色与图例', '连线颜色按关系强度撞色显示，图例按钮查看；背景可切换纯白/方格。'),
+          HelpItem(Icons.save_alt, '导出', '点「导出」把当前关系图存成图片，可查看/分享/删除。'),
+          HelpItem(Icons.lock, '锁定', '锁定后仅平移/缩放画布，不响应节点和连线操作。'),
+        ]);
+        break;
+      case 2:
+        showHelpSheet(context, '世界观', const [
+          HelpItem(Icons.account_tree, '层级树', '创建多级地理结构（大陆→国家→城市→地标），可增删、编辑、移动。'),
+          HelpItem(Icons.map, '地图标注', '上传手绘地图并打点标注；拖动图钉可微调位置，可切换/删除地图。'),
+          HelpItem(Icons.menu_book, '规则书', '按分区录入设定条目，支持全文搜索。'),
+          HelpItem(Icons.checklist, '自检清单', '逐项标记通过/存疑/不适用并写备注，可导出报告。'),
+          HelpItem(Icons.save_alt, '导出地图', '在地图页点「导出」把整张地图存成图片。'),
+          HelpItem(Icons.lock, '板块锁定', '锁定后四个子 Tab 不能左右滑动切换，便于在地图里缩放拖动。'),
+        ]);
+        break;
+      default:
+        showHelpSheet(context, '灵感碎片', const [
+          HelpItem(Icons.lightbulb_outline, '即将上线', '快速记录突发灵感的草稿箱，支持文字/语音，敬请期待。'),
+        ]);
+    }
   }
 
   @override
@@ -93,11 +131,8 @@ class _HomeShellState extends ConsumerState<HomeShell>
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
-            tooltip: '功能导览',
-            onPressed: () => Navigator.push(
-              context,
-              fadeSlideRoute(const HelpTourPage()),
-            ),
+            tooltip: '本页帮助',
+            onPressed: () => _showHelp(context),
           ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
@@ -164,21 +199,11 @@ class _SettingsPageState extends ConsumerState<_SettingsPage> {
     final db = ref.read(databaseProvider);
     final path = await exportAll(db);
     if (!mounted) return;
-    await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('导出成功'),
-        content: SelectableText('文件已保存到：\n$path'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('好')),
-        ],
-      ),
-    );
+    await showExportResult(context, path);
   }
 
   Future<void> _import() async {
-    final docDir = await getApplicationDocumentsDirectory();
-    final exportDir = Directory(p.join(docDir.path, 'exports'));
+    final exportDir = await getExportDir();
     final files = exportDir.existsSync()
         ? exportDir
             .listSync()
@@ -247,7 +272,23 @@ class _SettingsPageState extends ConsumerState<_SettingsPage> {
     final splashImage = ref.watch(splashImageProvider);
     final strengthColors = ref.watch(strengthColorsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('设置')),
+      appBar: AppBar(
+        title: const Text('设置'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            tooltip: '本页帮助',
+            onPressed: () => showHelpSheet(context, '设置', const [
+              HelpItem(Icons.color_lens, '主题颜色', '更换全局配色。'),
+              HelpItem(Icons.image_outlined, '应用背景图片', '上传自定义照片作为全屏背景，可调透明度。'),
+              HelpItem(Icons.auto_awesome, '开机动画图片', '用自定义图替换默认开机动画。'),
+              HelpItem(Icons.palette_outlined, '关系强度颜色', '为五档关系强度各选撞色搭配。'),
+              HelpItem(Icons.upload_file, '导出 / 导入', '备份数据为 zip，或从备份恢复。'),
+              HelpItem(Icons.folder_outlined, '已保存的内容', '查看 / 分享 / 删除所有已导出的文件。'),
+            ]),
+          ),
+        ],
+      ),
       body: ListView(
         children: [
           const Padding(
@@ -384,6 +425,13 @@ class _SettingsPageState extends ConsumerState<_SettingsPage> {
             title: const Text('导入备份'),
             subtitle: const Text('从之前导出的 zip 恢复'),
             onTap: _import,
+          ),
+          ListTile(
+            leading: const Icon(Icons.folder_outlined),
+            title: const Text('已保存的内容'),
+            subtitle: const Text('查看 / 分享 / 删除已导出的文件'),
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const SavedPage())),
           ),
         ],
       ),

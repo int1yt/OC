@@ -18,7 +18,7 @@ class OcApp extends ConsumerWidget {
     final bgImage = ref.watch(bgImagePathProvider);
     final bgOpacity = ref.watch(bgOpacityProvider);
     return MaterialApp(
-      title: 'OC 创作台',
+      title: 'OC果子铺',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(seed),
       darkTheme: AppTheme.dark(seed),
