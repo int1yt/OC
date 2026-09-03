@@ -57,26 +57,6 @@ const int kDirectionBidirectional = 0;
 const int kDirectionForward = 1;
 const int kDirectionBackward = 2;
 
-/// 关系标签 → 颜色（预设固定色，自定义按哈希取色）
-Color labelColor(String label) {
-  const palette = [
-    Color(0xFFE85D75), // 血缘 红
-    Color(0xFF8E44AD), // 宿敌 紫
-    Color(0xFFE91E63), // 恋人 粉红
-    Color(0xFF5B8DEF), // 君臣 蓝
-    Color(0xFFF39C12), // 单相思 橙
-    Color(0xFF16A085), // 师徒 青绿
-    Color(0xFF27AE60), // 挚友 绿
-    Color(0xFFC0392B), // 仇敌 深红
-    Color(0xFF7F8C8D), // 同事 灰
-    Color(0xFF607D8B), // 路人 蓝灰
-  ];
-  final idx = kPresetRelationLabels.indexOf(label);
-  if (idx >= 0 && idx < palette.length) return palette[idx];
-  final h = label.codeUnits.fold<int>(0, (a, b) => a + b);
-  return palette[h % palette.length];
-}
-
 /// 16 型 MBTI
 const List<String> kMbtiTypes = [
   'ISTJ', 'ISFJ', 'INFJ', 'INTJ',

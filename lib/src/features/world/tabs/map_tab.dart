@@ -45,6 +45,7 @@ class _MapTabState extends ConsumerState<MapTab> {
   Future<void> _uploadMap(String workId) async {
     final path = await pickAndStoreImage();
     if (path == null) return;
+    if (!mounted) return;
     final ctrl = TextEditingController();
     final name = await showDialog<String>(
       context: context,

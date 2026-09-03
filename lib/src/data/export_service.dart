@@ -197,7 +197,9 @@ Future<int> importZip(AppDatabase db, String zipPath) async {
 
   final works = (data['works'] as List).cast<Map<String, dynamic>>();
   final workIdMap = <String, String>{};
-  for (final w in works) workIdMap[w['id'] as String] = nid(w['id'] as String);
+  for (final w in works) {
+    workIdMap[w['id'] as String] = nid(w['id'] as String);
+  }
 
   Future<void> insertWorkChildren(String oldWorkId, String newWorkId) async {
     final tags = ((data['tags'] as List).cast<Map<String, dynamic>>())
@@ -326,7 +328,9 @@ Future<int> importZip(AppDatabase db, String zipPath) async {
         .where((r) => r['workId'] == oldWorkId);
     for (final r in rels) {
       if (!ocIdMap.containsKey(r['sourceOcId']) ||
-          !ocIdMap.containsKey(r['targetOcId'])) continue;
+          !ocIdMap.containsKey(r['targetOcId'])) {
+        continue;
+      }
       relIdMap[r['id'] as String] = nid(r['id'] as String);
       await db.into(db.relationships).insert(RelationshipsCompanion.insert(
             id: relIdMap[r['id']]!,

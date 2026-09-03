@@ -320,7 +320,7 @@ class _RelationshipGraphPageState extends ConsumerState<RelationshipGraphPage> {
             ListTile(
               leading: CircleAvatar(
                 radius: 6,
-                backgroundColor: labelColor(r.label),
+                backgroundColor: RelationStrength.fromLabel(r.strength).color,
               ),
               title: Text('${source?.name ?? '?'} → ${target?.name ?? '?'}'),
               subtitle: Text('${r.label} · ${strength.label}'),
